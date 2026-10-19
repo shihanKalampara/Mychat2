@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Admin</title>
+<style>body{font:16px/1.4 system-ui,sans-serif;margin:0;padding:16px;background:#f3f4fa;color:#1b1c33}input,button{font:inherit;padding:10px;border-radius:8px;border:1px solid #ccd}button{background:#26277a;color:#fff;border:0}.c{background:#fff;border-radius:10px;padding:12px;margin:12px 0}.m{margin:4px 0;padding:6px 8px;background:#eef;border-radius:6px;white-space:pre-wrap}.m.bad{background:#fde7e7}small{color:#667}</style></head>
+<body><h2>Admin</h2><input id="k" type="password" placeholder="Admin key"> <button id="go">Load</button>
+<p id="st"></p><div id="out"></div>
+<script>
+const $=s=>document.querySelector(s);
+$('#go').onclick=async()=>{
+ const r=await fetch('/api/admin/reports',{headers:{'x-admin-key':$('#k').value}});
+ if(!r.ok){$('#st').textContent='Not allowed';return}
+ const j=await r.json();
+ $('#st').textContent=`${j.stats.users} users · ${j.stats.messages} messages · ${j.stats.reports} reports`;
+ const out=$('#out');out.textContent='';
+ j.reports.forEach(x=>{
+  const c=document.createElement('div');c.className='c';
+  const h=document.createElement('small');
+  h.textContent=`#${x.id} · ${new Date(x.created).toLocaleString()} · reported by +${x.reporter} against +${x.reported}`+(x.reason?` · ${x.reason}`:'');
+  c.appendChild(h);
+  x.context.forEach((m,i)=>{const d=document.createElement('div');d.className='m'+(i===x.context.length-1?' bad':'');d.textContent=`+${m.from}: ${m.text}`;c.appendChild(d)});
+  out.appendChild(c);
+ });
+ if(!j.reports.length)out.textContent='No reports yet.';
+};
+</script></body></html>

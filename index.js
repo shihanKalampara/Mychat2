@@ -1,0 +1,157 @@
+const express = require('express'), { Pool } = require('pg'), crypto = require('crypto');
+
+const SECRET = process.env.SECRET || 'change-me-set-SECRET-env';
+let conn = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
+conn = conn.replace(/([?&])channel_binding=[^&]*&?/, '$1').replace(/[?&]$/, '');
+const pool = conn ? new Pool({ connectionString: conn, max: 1, idleTimeoutMillis: 10000 }) : null;
+const q = (t, p) => pool.query(t, p).then(r => r.rows);
+const MSG = 'id, sender AS "from", recipient AS "to", body AS "text", ts::float8 AS ts, status';
+
+let ready;
+const init = () => ready || (ready = (async () => {
+  await q(`CREATE TABLE IF NOT EXISTS users(phone text PRIMARY KEY, name text NOT NULL, salt text NOT NULL, hash text NOT NULL, last_seen bigint NOT NULL DEFAULT 0)`);
+  await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS show_status boolean NOT NULL DEFAULT true`);
+  await q(`CREATE TABLE IF NOT EXISTS messages(id uuid PRIMARY KEY, sender text NOT NULL, recipient text NOT NULL, body text NOT NULL, ts bigint NOT NULL, status text NOT NULL)`);
+  await q(`CREATE TABLE IF NOT EXISTS blocks(blocker text NOT NULL, blocked text NOT NULL, PRIMARY KEY(blocker, blocked))`);
+  await q(`CREATE TABLE IF NOT EXISTS reports(id serial PRIMARY KEY, reporter text NOT NULL, reported text NOT NULL, reason text, context jsonb NOT NULL, created bigint NOT NULL)`);
+  await q(`CREATE INDEX IF NOT EXISTS msg_pair ON messages(sender, recipient, ts)`);
+  await q(`CREATE INDEX IF NOT EXISTS msg_pending ON messages(recipient, status)`);
+})().catch(e => { ready = null; throw e; }));
+
+const mac = b => crypto.createHmac('sha256', SECRET).update(b).digest('base64url');
+const sign = p => { const b = Buffer.from(p).toString('base64url'); return b + '.' + mac(b); };
+const verify = tok => {
+  if (!tok || typeof tok !== 'string') return null;
+  const [b, s] = tok.split('.');
+  if (!b || !s) return null;
+  const e = mac(b);
+  if (s.length !== e.length || !crypto.timingSafeEqual(Buffer.from(s), Buffer.from(e))) return null;
+  return Buffer.from(b, 'base64url').toString();
+};
+const hashPw = (pw, salt) => crypto.scryptSync(pw, salt, 32).toString('hex');
+const userExists = async p => (await q('SELECT 1 FROM users WHERE phone=$1', [p])).length > 0;
+
+const app = express();
+app.use(express.json({ limit: '50kb' }));
+
+app.use('/api', (req, res, next) => {
+  if (!pool) return res.status(503).json({ error: 'The database is not connected yet.' });
+  init().then(() => next()).catch(e => { console.error(e); res.status(500).json({ error: 'Database error. Try again.' }); });
+});
+
+const h = fn => (req, res, next) => fn(req, res, next).catch(e => { console.error(e); res.status(500).json({ error: 'Server error. Try again.' }); });
+const auth = h(async (req, res, next) => {
+  const p = verify((req.headers.authorization || '').replace('Bearer ', ''));
+  if (!p || !(await userExists(p))) return res.status(401).json({ error: 'Please log in again' });
+  req.me = p; next();
+});
+
+app.post('/api/register', h(async (req, res) => {
+  const { name, phone, password } = req.body || {};
+  const ph = String(phone || '').replace(/\D/g, '');
+  if (!name || ph.length < 8 || ph.length > 15 || !password || String(password).length < 6)
+    return res.status(400).json({ error: 'Enter your name, a phone number (8-15 digits) and a password (6+ characters)' });
+  const salt = crypto.randomBytes(16).toString('hex'), nm = String(name).trim().slice(0, 40);
+  const r = await q('INSERT INTO users(phone,name,salt,hash) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING phone',
+    [ph, nm, salt, hashPw(String(password), salt)]);
+  if (!r.length) return res.status(409).json({ error: 'This number is already registered. Log in instead.' });
+  res.json({ token: sign(ph), user: { phone: ph, name: nm } });
+}));
+
+app.post('/api/login', h(async (req, res) => {
+  const { phone, password } = req.body || {};
+  const [u] = await q('SELECT * FROM users WHERE phone=$1', [String(phone || '').replace(/\D/g, '')]);
+  const bad = () => res.status(400).json({ error: 'Wrong phone number or password' });
+  if (!u || !password) return bad();
+  const a = Buffer.from(hashPw(String(password), u.salt)), b = Buffer.from(u.hash);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return bad();
+  res.json({ token: sign(u.phone), user: { phone: u.phone, name: u.name } });
+}));
+
+async function chatList(me, myShow) {
+  const rows = await q(`
+    WITH x AS (SELECT ${MSG}, CASE WHEN sender=$1 THEN recipient ELSE sender END AS other
+               FROM messages WHERE sender=$1 OR recipient=$1)
+    SELECT DISTINCT ON (x.other) x.other, x.id, x."from", x."to", x."text", x.ts, x.status, u.name, u.last_seen::float8 AS ls, u.show_status AS ss,
+           (SELECT count(*)::int FROM messages WHERE sender=x.other AND recipient=$1 AND status<>'read') AS unread
+    FROM x JOIN users u ON u.phone=x.other ORDER BY x.other, x.ts DESC`, [me]);
+  return rows.map(r => ({
+    user: { phone: r.other, name: r.name }, unread: r.unread, online: !!(myShow && r.ss && Date.now() - r.ls < 12000),
+    last: { id: r.id, from: r.from, to: r.to, text: r.text, ts: r.ts, status: r.status }
+  })).sort((a, b) => b.last.ts - a.last.ts);
+}
+
+app.get('/api/sync', auth, h(async (req, res) => {
+  const me = req.me, peer = String(req.query.peer || '').replace(/\D/g, '');
+  if (!req.query.bg) await q('UPDATE users SET last_seen=$2 WHERE phone=$1', [me, Date.now()]);
+  const [mine] = await q('SELECT show_status FROM users WHERE phone=$1', [me]);
+  const myShow = mine.show_status;
+  await q(`UPDATE messages SET status='delivered' WHERE recipient=$1 AND status='sent'`, [me]);
+  if (peer) await q(`UPDATE messages SET status='read' WHERE recipient=$1 AND sender=$2 AND status<>'read'`, [me, peer]);
+  const chats = await chatList(me, myShow);
+  let msgs = [], online = false, name = '', iBlocked = false;
+  if (peer) {
+    msgs = await q(`SELECT ${MSG} FROM (SELECT * FROM messages WHERE (sender=$1 AND recipient=$2) OR (sender=$2 AND recipient=$1) ORDER BY ts DESC LIMIT 200) m ORDER BY ts`, [me, peer]);
+    const [u] = await q('SELECT name, last_seen, show_status FROM users WHERE phone=$1', [peer]);
+    if (u) { online = !!(myShow && u.show_status && Date.now() - Number(u.last_seen) < 12000); name = u.name; }
+    iBlocked = (await q('SELECT 1 FROM blocks WHERE blocker=$1 AND blocked=$2', [me, peer])).length > 0;
+  }
+  res.json({ chats, msgs, online, name, iBlocked, showStatus: myShow });
+}));
+
+app.post('/api/send', auth, h(async (req, res) => {
+  const b = req.body || {}, to = String(b.to || ''), text = String(b.text || '').trim().slice(0, 4000);
+  if (!text || to === req.me || !(await userExists(to))) return res.status(400).json({ error: 'Message not sent' });
+  const bl = await q('SELECT blocker FROM blocks WHERE (blocker=$1 AND blocked=$2) OR (blocker=$2 AND blocked=$1)', [req.me, to]);
+  if (bl.length) return res.status(403).json({ error: bl.some(x => x.blocker === req.me) ? 'You blocked this user. Unblock to send messages.' : 'This message could not be sent.' });
+  const m = { id: crypto.randomUUID(), from: req.me, to, text, ts: Date.now(), status: 'sent' };
+  await q('INSERT INTO messages(id,sender,recipient,body,ts,status) VALUES($1,$2,$3,$4,$5,$6)', [m.id, req.me, to, text, m.ts, 'sent']);
+  res.json(m);
+}));
+
+app.get('/api/users', auth, h(async (req, res) => {
+  const t = String(req.query.q || '').toLowerCase().trim().replace(/[%_\\]/g, '');
+  if (!t) return res.json([]);
+  res.json(await q('SELECT phone, name FROM users WHERE phone<>$1 AND (phone LIKE $2 OR lower(name) LIKE $2) LIMIT 20', [req.me, '%' + t + '%']));
+}));
+
+app.post('/api/status', auth, h(async (req, res) => {
+  await q('UPDATE users SET show_status=$2 WHERE phone=$1', [req.me, !!(req.body && req.body.show)]);
+  res.json({ ok: true });
+}));
+
+app.post('/api/block', auth, h(async (req, res) => {
+  const b = req.body || {}, p = String(b.phone || '');
+  if (!p || p === req.me || !(await userExists(p))) return res.status(400).json({ error: 'Invalid user' });
+  if (b.block) await q('INSERT INTO blocks(blocker,blocked) VALUES($1,$2) ON CONFLICT DO NOTHING', [req.me, p]);
+  else await q('DELETE FROM blocks WHERE blocker=$1 AND blocked=$2', [req.me, p]);
+  res.json({ ok: true });
+}));
+
+// Only messages you received can be reported. The admin sees the reported message plus a few before it.
+app.post('/api/report', auth, h(async (req, res) => {
+  const b = req.body || {}, id = String(b.messageId || '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: 'Invalid message' });
+  const [m] = await q(`SELECT ${MSG} FROM messages WHERE id=$1 AND recipient=$2`, [id, req.me]);
+  if (!m) return res.status(404).json({ error: 'Message not found' });
+  const ctx = await q(`SELECT ${MSG} FROM messages WHERE ((sender=$1 AND recipient=$2) OR (sender=$2 AND recipient=$1)) AND ts<=$3 ORDER BY ts DESC LIMIT 6`, [req.me, m.from, m.ts]);
+  ctx.reverse();
+  await q('INSERT INTO reports(reporter,reported,reason,context,created) VALUES($1,$2,$3,$4,$5)',
+    [req.me, m.from, String(b.reason || '').slice(0, 200), JSON.stringify(ctx.map(x => ({ from: x.from, text: x.text, ts: x.ts }))), Date.now()]);
+  if (b.block) await q('INSERT INTO blocks(blocker,blocked) VALUES($1,$2) ON CONFLICT DO NOTHING', [req.me, m.from]);
+  res.json({ ok: true });
+}));
+
+// Admin: counts and reported messages only. Disabled unless the ADMIN_KEY environment variable is set.
+const adminOK = (req, res, next) => {
+  const k = Buffer.from(process.env.ADMIN_KEY || ''), g = Buffer.from(String(req.headers['x-admin-key'] || ''));
+  if (!k.length || k.length !== g.length || !crypto.timingSafeEqual(k, g)) return res.status(404).json({ error: 'Not found' });
+  next();
+};
+app.get('/api/admin/reports', adminOK, h(async (req, res) => {
+  const [stats] = await q(`SELECT (SELECT count(*)::int FROM users) AS users, (SELECT count(*)::int FROM messages) AS messages, (SELECT count(*)::int FROM reports) AS reports`);
+  const reports = await q('SELECT id, reporter, reported, reason, context, created::float8 AS created FROM reports ORDER BY id DESC LIMIT 100');
+  res.json({ stats, reports });
+}));
+
+module.exports = app;

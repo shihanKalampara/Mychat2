@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Calculator</title>
+<style>
+:root{--ink:#26277A;--ink2:#3A3CA6;--bg:#F3F4FA;--panel:#fff;--line:#E1E3F0;--text:#1B1C33;--mute:#6B6E8E;--in:#E3F4EE;--amber:#F2B134;--bad:#C0392B}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font:16px/1.4 system-ui,-apple-system,"Segoe UI","Noto Sans Malayalam","Noto Sans",sans-serif;background:var(--bg);color:var(--text)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.hide{display:none!important}
+#auth{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--ink)}
+.card{width:100%;max-width:380px;background:var(--panel);border-radius:14px;padding:28px 24px}
+.logo{font-size:30px;font-weight:800;color:var(--ink);letter-spacing:-.5px}
+.tag{color:var(--mute);margin:2px 0 20px}
+.card input{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:#fff}
+.btn{width:100%;padding:12px;border-radius:8px;background:var(--ink);color:#fff;font-weight:600}
+.btn:hover{background:var(--ink2)}
+.link{display:block;margin:14px auto 0;color:var(--ink);text-decoration:underline}
+.err{color:var(--bad);min-height:20px;margin-bottom:8px;font-size:14px}
+#app{height:100dvh;display:grid;grid-template-columns:340px 1fr;padding-bottom:env(safe-area-inset-bottom)}
+#side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.top{background:var(--ink);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 14px 12px;display:flex;align-items:center;gap:8px}
+.top b{flex:1;font-size:20px}
+.top button{color:#fff;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,.14)}
+#list{overflow:auto;flex:1}
+.row{display:flex;gap:12px;align-items:center;padding:12px 14px;width:100%;text-align:left;border-bottom:1px solid var(--line)}
+.row:hover,.row.on{background:var(--bg)}
+.av{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700}
+.meta{flex:1;min-width:0}
+.meta div{display:flex;justify-content:space-between;gap:8px}
+.meta small{color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.badge{background:var(--amber);color:#2b2100;border-radius:10px;padding:0 7px;font-size:12px;font-weight:700}
+.empty{padding:32px 20px;color:var(--mute);text-align:center}
+#pane{display:flex;flex-direction:column;min-height:0;min-width:0}
+#head{background:var(--panel);border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top)) 14px 10px;display:flex;align-items:center;gap:10px}
+#back{display:none;font-size:22px;color:var(--ink)}
+#msgs{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:6px}
+.m{max-width:78%;padding:8px 12px;border-radius:12px;background:var(--in);word-wrap:break-word;white-space:pre-wrap}
+.m.me{align-self:flex-end;background:var(--ink);color:#fff}
+.m i{display:block;font-style:normal;font-size:11px;opacity:.7;text-align:right;margin-top:2px}
+.m.me .rd{color:var(--amber);opacity:1}
+#bar{display:flex;gap:8px;padding:10px;background:var(--panel);border-top:1px solid var(--line)}
+#bar input{flex:1;padding:12px 14px;border:1px solid var(--line);border-radius:22px}
+#bar button{background:var(--ink);color:#fff;border-radius:22px;padding:0 20px;font-weight:600}
+#none{flex:1;display:grid;place-items:center;color:var(--mute);padding:20px;text-align:center}
+#find{position:fixed;inset:0;background:rgba(20,20,50,.5);display:grid;place-items:start center;padding:8vh 16px}
+#find .card{padding:16px;max-height:80vh;overflow:auto}
+
+.top{position:relative}
+#menu{position:absolute;right:10px;top:100%;background:#fff;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.25);display:flex;flex-direction:column;z-index:20;overflow:hidden}
+.top #menu button{color:var(--text);background:none;padding:12px 18px;text-align:left;border-radius:0;white-space:nowrap}
+.top #menu button:hover{background:var(--bg)}
+#calc{position:fixed;inset:0;background:#000;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;padding:16px 14px calc(16px + env(safe-area-inset-bottom));z-index:50;user-select:none;-webkit-user-select:none;touch-action:manipulation;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+#cHint{color:#8d8d93;font-size:14px;text-align:center;min-height:20px;padding-bottom:8px}
+#cExp{color:#8d8d93;text-align:right;font-size:20px;min-height:28px;overflow:hidden;white-space:nowrap}
+#cOut{text-align:right;font-size:72px;font-weight:300;line-height:1.1;overflow:hidden;white-space:nowrap;padding-bottom:14px}
+#cKeys{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:420px;width:100%;margin:0 auto}
+#cKeys button{aspect-ratio:1;border-radius:50%;font-size:30px;background:#333;color:#fff;display:grid;place-items:center}
+#cKeys button:active{filter:brightness(1.4)}
+#cKeys .fn{background:#a5a5a5;color:#000}
+#cKeys .op{background:#ff9f0a}
+#cKeys .zero{grid-column:span 2;aspect-ratio:auto;border-radius:999px;place-items:center start;padding-left:28px}
+#cExp,#cOut{max-width:420px;width:100%;margin-left:auto;margin-right:auto}
+.rep{font-size:12px;opacity:.45;padding:0 4px;color:inherit}
+#head{position:relative}
+#cMenu{position:absolute;right:10px;top:100%;background:#fff;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.25);z-index:20;overflow:hidden}
+#cMenu button{padding:12px 18px;white-space:nowrap;display:block}
+#cMenu button:hover{background:var(--bg)}
+.av{position:relative}
+.av.on::after{content:"";position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:#22c55e;border:2px solid #fff}
+@media(max-width:720px){
+ #app{grid-template-columns:1fr}
+ #pane{display:none}
+ #app.open #side{display:none}
+ #app.open #pane{display:flex}
+ #back{display:block}
+}
+</style>
+</head>
+<body>
+
+<div id="calc"><div id="cHint"></div><div id="cExp"></div><div id="cOut">0</div><div id="cKeys"></div></div>
+
+<div id="auth" class="hide">
+ <form class="card" id="authForm">
+  <div class="logo">MyChat</div>
+  <div class="tag">നിങ്ങളുടെ സ്വന്തം ചാറ്റ്</div>
+  <input id="aName" placeholder="Your name" autocomplete="name">
+  <input id="aPhone" placeholder="Phone number" inputmode="tel" autocomplete="tel">
+  <input id="aPass" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
+  <div class="err" id="aErr" role="alert"></div>
+  <button class="btn" id="aGo" type="submit">Create account</button>
+  <p class="tag" style="font-size:13px;margin:14px 0 0">Messages are private. Only a message that someone reports can be reviewed by the admin.</p>
+  <button class="link" id="aSwap" type="button">I already have an account</button>
+ </form>
+</div>
+
+<div id="app" class="hide">
+ <aside id="side">
+  <div class="top"><b>MyChat</b><button id="newBtn">New chat</button><button id="lockBtn">Lock</button><button id="moreBtn" aria-label="More options">⋯</button><div id="menu" class="hide"><button id="statusBtn">Activity status: On</button><button id="codeBtn">Change code</button><button id="outBtn">Log out</button></div></div>
+  <div id="list"></div>
+ </aside>
+ <main id="pane">
+  <div id="none">Pick a chat, or start a new one with a phone number.</div>
+  <div id="chat" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
+   <div id="head"><button id="back" aria-label="Back to chats">&larr;</button><div class="av" id="hAv"></div><div class="meta"><b id="hName"></b><small id="hSub"></small></div><button id="cMore" aria-label="Chat options" style="font-size:22px;color:var(--ink);padding:4px 10px">⋯</button><div id="cMenu" class="hide"><button id="blkBtn">Block user</button></div></div>
+   <div id="msgs"></div>
+   <form id="bar"><input id="txt" placeholder="Type a message" autocomplete="off"><button type="submit">Send</button></form>
+  </div>
+ </main>
+</div>
+
+<div id="find" class="hide">
+ <div class="card">
+  <input id="q" placeholder="Search by name or phone number" autocomplete="off">
+  <div id="res"></div>
+  <button class="link" id="closeFind" type="button">Close</button>
+ </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const COLORS = ['#3A3CA6','#1F8A70','#C2410C','#9333EA','#0E7490','#B45309','#BE185D'];
+const color = p => COLORS[[...p].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
+const hm = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const tick = s => s === 'sent' ? '✓' : '✓✓';
+
+let S = { locked: true, token: localStorage.token, me: JSON.parse(localStorage.me || 'null'), chats: [], cur: null, msgs: [], mode: 'register', timer: null, busy: false, sig: '', unread: 0 };
+
+async function api(p, body) {
+  const r = await fetch('/api/' + p, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + S.token }, body: body && JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { if (r.status === 401 && S.token) logout(); throw new Error(j.error || 'Something went wrong'); }
+  return j;
+}
+
+function showAuth() {
+  $('#app').classList.add('hide'); $('#auth').classList.remove('hide');
+  const reg = S.mode === 'register';
+  $('#aName').classList.toggle('hide', !reg);
+  $('#aGo').textContent = reg ? 'Create account' : 'Log in';
+  $('#aSwap').textContent = reg ? 'I already have an account' : 'Create a new account';
+  $('#aErr').textContent = '';
+}
+$('#aSwap').onclick = () => { S.mode = S.mode === 'register' ? 'login' : 'register'; showAuth(); };
+$('#authForm').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    const j = await api(S.mode, { name: $('#aName').value, phone: $('#aPhone').value, password: $('#aPass').value });
+    S.token = localStorage.token = j.token; S.me = j.user; localStorage.me = JSON.stringify(j.user);
+    start();
+  } catch (err) { $('#aErr').textContent = err.message; }
+};
+function logout() {
+  const kc = localStorage.code; localStorage.clear(); if (kc) localStorage.code = kc; S.token = null; S.me = null; S.cur = null; clearTimeout(S.timer);
+  S.mode = 'login'; showAuth();
+}
+$('#outBtn').onclick = logout;
+
+function start() {
+  $('#auth').classList.add('hide'); $('#app').classList.remove('hide');
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  sync();
+}
+
+async function sync() {
+  if (!S.token || S.busy || S.locked) return;
+  S.busy = true; clearTimeout(S.timer);
+  try {
+    const qs = []; if (S.cur) qs.push('peer=' + S.cur.phone); if (document.hidden) qs.push('bg=1');
+    const r = await api('sync' + (qs.length ? '?' + qs.join('&') : ''));
+    S.showStatus = r.showStatus; $('#statusBtn').textContent = 'Activity status: ' + (r.showStatus ? 'On' : 'Off');
+    const total = r.chats.reduce((a, c) => a + c.unread, 0);
+    if (total > S.unread && document.hidden && 'Notification' in window && Notification.permission === 'granted') new Notification('Calculator', { body: 'New message' });
+    S.unread = total;
+    const sig = JSON.stringify(r.chats);
+    if (sig !== S.sig) { S.chats = r.chats; S.sig = sig; drawList(); }
+    if (S.cur) {
+      const ms = JSON.stringify(r.msgs);
+      S.cur.online = r.online; S.cur.iBlocked = r.iBlocked;
+      drawHead();
+      if (ms !== S.msigs) { S.msgs = r.msgs; S.msigs = ms; drawMsgs(); }
+    }
+  } catch {}
+  S.busy = false;
+  S.timer = setTimeout(sync, document.hidden ? 8000 : 2500);
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { clearTimeout(S.timer); sync(); } });
+
+function drawList() {
+  const el = $('#list');
+  if (!S.chats.length) { el.innerHTML = '<div class="empty">No chats yet.<br>Tap “New chat” and search for a friend’s number.</div>'; return; }
+  el.innerHTML = S.chats.map(c => `
+    <button class="row ${S.cur && S.cur.phone === c.user.phone ? 'on' : ''}" data-p="${esc(c.user.phone)}">
+      <span class="av ${c.online ? 'on' : ''}" style="background:${color(c.user.phone)}">${esc(c.user.name[0].toUpperCase())}</span>
+      <span class="meta"><div><b>${esc(c.user.name)}</b><small>${hm(c.last.ts)}</small></div>
+      <div><small>${c.last.from === S.me.phone ? tick(c.last.status) + ' ' : ''}${esc(c.last.text)}</small>${c.unread ? `<span class="badge">${c.unread}</span>` : ''}</div></span>
+    </button>`).join('');
+  el.querySelectorAll('.row').forEach(b => b.onclick = () => openChat(b.dataset.p));
+}
+
+async function openChat(phone, name) {
+  const known = S.chats.find(c => c.user.phone === phone);
+  S.cur = { phone, name: (known && known.user.name) || name || phone, online: false };
+  S.msgs = []; S.msigs = '';
+  $('#none').classList.add('hide'); $('#chat').classList.remove('hide');
+  $('#app').classList.add('open');
+  drawHead(); drawMsgs(); drawList();
+  clearTimeout(S.timer); S.busy = false; await sync();
+  $('#txt').focus();
+}
+
+function drawHead() {
+  if (!S.cur) return;
+  $('#hAv').textContent = S.cur.name[0].toUpperCase(); $('#hAv').style.background = color(S.cur.phone); $('#hAv').classList.toggle('on', !!S.cur.online);
+  $('#hName').textContent = S.cur.name;
+  $('#hSub').textContent = S.cur.iBlocked ? 'blocked' : S.cur.online ? 'online' : '+' + S.cur.phone;
+  $('#blkBtn').textContent = S.cur.iBlocked ? 'Unblock user' : 'Block user';
+  $('#txt').disabled = !!S.cur.iBlocked; $('#txt').placeholder = S.cur.iBlocked ? 'You blocked this user' : 'Type a message';
+}
+
+function drawMsgs() {
+  const el = $('#msgs');
+  el.innerHTML = S.msgs.map(m => {
+    const me = m.from === S.me.phone;
+    return `<div class="m ${me ? 'me' : ''}">${esc(m.text)}<i>${hm(m.ts)}${me ? ` <span class="${m.status === 'read' ? 'rd' : ''}">${tick(m.status)}</span>` : ` <button class="rep" data-id="${m.id}" aria-label="Report message">⚑</button>`}</i></div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+$('#bar').onsubmit = async e => {
+  e.preventDefault();
+  const text = $('#txt').value.trim();
+  if (!text || !S.cur) return;
+  $('#txt').value = '';
+  try {
+    const m = await api('send', { to: S.cur.phone, text });
+    S.msgs.push(m); S.msigs = JSON.stringify(S.msgs); drawMsgs();
+    clearTimeout(S.timer); S.busy = false; sync();
+  } catch (err) { alert(err.message); $('#txt').value = text; }
+};
+$('#back').onclick = () => { $('#app').classList.remove('open'); S.cur = null; S.sig = ''; sync(); };
+
+$('#newBtn').onclick = () => { $('#find').classList.remove('hide'); $('#q').value = ''; $('#res').innerHTML = '<div class="empty">Type a name or phone number.</div>'; $('#q').focus(); };
+$('#closeFind').onclick = () => $('#find').classList.add('hide');
+let qT;
+$('#q').oninput = () => {
+  clearTimeout(qT);
+  qT = setTimeout(async () => {
+    const t = $('#q').value.trim(); if (!t) return;
+    const r = await api('users?q=' + encodeURIComponent(t));
+    $('#res').innerHTML = r.length ? r.map(u => `
+      <button class="row" data-p="${esc(u.phone)}" data-n="${esc(u.name)}"><span class="av" style="background:${color(u.phone)}">${esc(u.name[0].toUpperCase())}</span>
+      <span class="meta"><b>${esc(u.name)}</b><small>+${esc(u.phone)}</small></span></button>`).join('')
+      : '<div class="empty">No one found. Ask your friend to create an account first.</div>';
+    $('#res').querySelectorAll('.row').forEach(b => b.onclick = () => { $('#find').classList.add('hide'); openChat(b.dataset.p, b.dataset.n); });
+  }, 250);
+};
+
+/* ---------- calculator lock ---------- */
+/*EVAL*/
+function calcEval(e) {
+  const t = e.match(/-?\d+\.?\d*|-?\.\d+|[+−×÷]/g) || [];
+  const n = [], o = [];
+  for (const x of t) { if (/^[+−×÷]$/.test(x)) o.push(x); else n.push(parseFloat(x)); }
+  if (!n.length) return '0';
+  while (o.length >= n.length) o.pop();
+  const nn = [n[0]], oo = [];
+  for (let i = 0; i < o.length; i++) {
+    if (o[i] === '×') nn[nn.length - 1] *= n[i + 1];
+    else if (o[i] === '÷') { if (n[i + 1] === 0) return 'Error'; nn[nn.length - 1] /= n[i + 1]; }
+    else { oo.push(o[i]); nn.push(n[i + 1]); }
+  }
+  let r = nn[0];
+  oo.forEach((op, i) => { r = op === '+' ? r + nn[i + 1] : r - nn[i + 1]; });
+  if (!isFinite(r)) return 'Error';
+  return String(parseFloat(r.toPrecision(12)));
+}
+/*END*/
+async function sha(s) {
+  if (!(window.crypto && crypto.subtle)) return 'x' + btoa('mychat:' + s);
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('mychat:' + s));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+let ce = '', cDone = false, cPend = '';
+const cHint = t => $('#cHint').textContent = t;
+function cShow() {
+  $('#cOut').textContent = ce || '0';
+  const l = (ce || '0').length;
+  $('#cOut').style.fontSize = l > 10 ? '40px' : l > 7 ? '54px' : '72px';
+}
+function cClear() { ce = ''; cDone = false; cPend = ''; $('#cExp').textContent = ''; cShow(); }
+const CKEYS = [['AC','fn'],['±','fn'],['%','fn'],['÷','op'],['7'],['8'],['9'],['×','op'],['4'],['5'],['6'],['−','op'],['1'],['2'],['3'],['+','op'],['0','zero'],['.'],['=','op']];
+$('#cKeys').innerHTML = CKEYS.map(([k, c]) => `<button class="${c || ''}" data-k="${k}" aria-label="${k}">${k}</button>`).join('');
+$('#cKeys').onclick = e => { const b = e.target.closest('button'); if (b) press(b.dataset.k); };
+
+async function press(k) {
+  if (ce === 'Error') ce = '';
+  if (/^\d$/.test(k)) { if (cDone) { ce = ''; cDone = false; $('#cExp').textContent = ''; } ce += k; }
+  else if (k === '.') {
+    if (cDone) { ce = ''; cDone = false; $('#cExp').textContent = ''; }
+    const m = ce.match(/[\d.]*$/)[0];
+    if (!m.includes('.')) ce += m === '' ? '0.' : '.';
+  }
+  else if (/^[+−×÷]$/.test(k)) {
+    cDone = false;
+    if (ce === '') ce = k === '−' ? '-' : '0' + k;
+    else if (ce === '-') {}
+    else if (/[+−×÷]$/.test(ce)) ce = ce.slice(0, -1) + k;
+    else ce += k;
+  }
+  else if (k === 'AC') { cClear(); return; }
+  else if (k === '±') {
+    const m = ce.match(/-?[\d.]*$/);
+    if (m && m[0] && m[0] !== '-') ce = ce.slice(0, ce.length - m[0].length) + (m[0][0] === '-' ? m[0].slice(1) : '-' + m[0]);
+    else if (ce === '') ce = '-';
+  }
+  else if (k === '%') {
+    const m = ce.match(/-?[\d.]+$/);
+    if (m) ce = ce.slice(0, ce.length - m[0].length) + String(parseFloat((parseFloat(m[0]) / 100).toPrecision(12)));
+  }
+  else if (k === '=') {
+    if (/^\d+$/.test(ce)) {
+      const h = await sha(ce), code = localStorage.code;
+      if (code) { if (h === code) { cClear(); unlock(); return; } }
+      else if (ce.length >= 4 && ce.length <= 8) {
+        if (!cPend) { cPend = h; cHint('Enter the same code again, then press ='); ce = ''; cShow(); return; }
+        if (cPend === h) { localStorage.code = h; cClear(); cHint(''); unlock(); return; }
+        cPend = ''; cHint('Codes did not match. Try again.'); ce = ''; cShow(); return;
+      }
+    }
+    const r = calcEval(ce); $('#cExp').textContent = ce; ce = r; cDone = true;
+  }
+  cShow();
+}
+
+function lock() {
+  S.locked = true; clearTimeout(S.timer); S.busy = false; S.cur = null; S.chats = []; S.msgs = []; S.sig = ''; S.msigs = '';
+  $('#list').innerHTML = ''; $('#msgs').innerHTML = '';
+  $('#chat').classList.add('hide'); $('#none').classList.remove('hide');
+  ['#app', '#auth', '#find', '#menu', '#cMenu'].forEach(i => $(i).classList.add('hide'));
+  $('#app').classList.remove('open'); $('#authForm').reset();
+  cClear(); cHint(localStorage.code ? '' : 'Set a secret code: type 4–8 digits, then press =');
+  document.title = 'Calculator'; $('#calc').classList.remove('hide');
+}
+function unlock() {
+  S.locked = false; $('#calc').classList.add('hide'); document.title = 'MyChat';
+  S.token && S.me ? start() : showAuth();
+}
+$('#lockBtn').onclick = lock;
+$('#moreBtn').onclick = e => { e.stopPropagation(); $('#menu').classList.toggle('hide'); };
+document.addEventListener('click', () => { $('#menu').classList.add('hide'); $('#cMenu').classList.add('hide'); });
+$('#codeBtn').onclick = () => { localStorage.removeItem('code'); lock(); };
+let awayAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) awayAt = Date.now();
+  else if (!S.locked && awayAt && Date.now() - awayAt > 30000) lock();
+});
+
+$('#cMore').onclick = e => { e.stopPropagation(); $('#cMenu').classList.toggle('hide'); };
+$('#blkBtn').onclick = async () => {
+  if (!S.cur) return;
+  const block = !S.cur.iBlocked;
+  if (block && !confirm('Block ' + S.cur.name + '? They will not be able to message you.')) return;
+  try { await api('block', { phone: S.cur.phone, block }); S.cur.iBlocked = block; drawHead(); } catch (e) { alert(e.message); }
+  $('#cMenu').classList.add('hide');
+};
+$('#msgs').onclick = async e => {
+  const b = e.target.closest('.rep'); if (!b) return;
+  if (!confirm('Report this message? The admin will be able to read it and a few messages before it.')) return;
+  const block = confirm('Also block this user?');
+  try { await api('report', { messageId: b.dataset.id, block }); if (block && S.cur) { S.cur.iBlocked = true; drawHead(); } alert('Reported. Thank you.'); }
+  catch (err) { alert(err.message); }
+};
+
+$('#statusBtn').onclick = async () => {
+  try { await api('status', { show: !S.showStatus }); S.showStatus = !S.showStatus; S.sig = ''; clearTimeout(S.timer); S.busy = false; sync(); }
+  catch (e) { alert(e.message); }
+};
+
+lock();
+</script>
+</body>
+</html>
