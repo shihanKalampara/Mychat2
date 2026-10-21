@@ -1,7 +1,12 @@
 const express = require('express'), { Pool } = require('pg'), crypto = require('crypto');
 
 const SECRET = process.env.SECRET || 'change-me-set-SECRET-env';
-let conn = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
+// Vercel's Neon integration may use a custom prefix (e.g. STORAGE_URL), so find any env var holding a Postgres URL.
+const isPg = k => /^postgres(ql)?:\/\//.test(process.env[k] || '');
+const envKey = ['DATABASE_URL', 'POSTGRES_URL'].find(isPg) ||
+  Object.keys(process.env).find(k => isPg(k) && !/UNPOOLED|NON_POOLING/.test(k)) ||
+  Object.keys(process.env).find(isPg);
+let conn = (envKey && process.env[envKey]) || '';
 conn = conn.replace(/([?&])channel_binding=[^&]*&?/, '$1').replace(/[?&]$/, '');
 const pool = conn ? new Pool({ connectionString: conn, max: 1, idleTimeoutMillis: 10000 }) : null;
 const q = (t, p) => pool.query(t, p).then(r => r.rows);
