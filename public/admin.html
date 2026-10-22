@@ -18,6 +18,7 @@ $('#go').onclick=async()=>{
   h.textContent=`#${x.id} · ${new Date(x.created).toLocaleString()} · reported by +${x.reporter} against +${x.reported}`+(x.reason?` · ${x.reason}`:'');
   c.appendChild(h);
   x.context.forEach((m,i)=>{const d=document.createElement('div');d.className='m'+(i===x.context.length-1?' bad':'');d.textContent=`+${m.from}: ${m.text}`;c.appendChild(d)});
+  if(x.media){const b=document.createElement('button');b.textContent='View reported '+(x.media_kind||'media');b.onclick=async()=>{const r=await fetch('/api/admin/media/'+x.media,{headers:{'x-admin-key':$('#k').value}});if(!r.ok){b.textContent='Not available';return}const u=URL.createObjectURL(await r.blob());const el=document.createElement(x.media_kind==='audio'?'audio':'img');if(x.media_kind==='audio')el.controls=true;else el.style.maxWidth='100%';el.src=u;b.replaceWith(el)};c.appendChild(b)}
   out.appendChild(c);
  });
  if(!j.reports.length)out.textContent='No reports yet.';
