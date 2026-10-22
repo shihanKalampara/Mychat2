@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/api/icon.png?s=64">
+<link rel="apple-touch-icon" href="/api/icon.png?s=180">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Calculator">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Calculator</title>
 <style>
 :root{--ink:#26277A;--ink2:#3A3CA6;--bg:#F3F4FA;--panel:#fff;--line:#E1E3F0;--text:#1B1C33;--mute:#6B6E8E;--in:#E3F4EE;--amber:#F2B134;--bad:#C0392B}
@@ -74,6 +81,19 @@ button{cursor:pointer;border:0;background:none}
 #cMenu button:hover{background:var(--bg)}
 .av{position:relative}
 .av.on::after{content:"";position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:#22c55e;border:2px solid #fff}
+.mimg{display:block;max-width:100%;max-height:320px;border-radius:8px;cursor:pointer;background:rgba(0,0,0,.08);min-width:120px;min-height:80px}
+.play{background:rgba(255,255,255,.18);color:inherit;border-radius:16px;padding:6px 14px;font-weight:600}
+.m:not(.me) .play{background:rgba(38,39,122,.12)}
+#bar{align-items:center}
+#bar .ib{background:none;color:var(--ink);font-size:22px;padding:0 6px;border-radius:50%;min-width:36px}
+#bar .ib:disabled,#bar input:disabled{opacity:.4}
+#rec{display:none;flex:1;align-items:center;gap:12px}
+#rec span{flex:1;color:#c0392b;font-weight:600}
+#bar.recording>:not(#rec){display:none!important}
+#bar.recording #rec{display:flex}
+#bar.busy{opacity:.6;pointer-events:none}
+#view{position:fixed;inset:0;background:rgba(0,0,0,.92);display:grid;place-items:center;z-index:40}
+#view img{max-width:100%;max-height:100%}
 @media(max-width:720px){
  #app{grid-template-columns:1fr}
  #pane{display:none}
@@ -111,10 +131,12 @@ button{cursor:pointer;border:0;background:none}
   <div id="chat" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
    <div id="head"><button id="back" aria-label="Back to chats">&larr;</button><div class="av" id="hAv"></div><div class="meta"><b id="hName"></b><small id="hSub"></small></div><button id="cMore" aria-label="Chat options" style="font-size:22px;color:var(--ink);padding:4px 10px">⋯</button><div id="cMenu" class="hide"><button id="blkBtn">Block user</button></div></div>
    <div id="msgs"></div>
-   <form id="bar"><input id="txt" placeholder="Type a message" autocomplete="off"><button type="submit">Send</button></form>
+   <form id="bar"><button type="button" class="ib" id="attBtn" aria-label="Send a photo">📷</button><input type="file" id="file" accept="image/*" hidden><input id="txt" placeholder="Type a message" autocomplete="off"><button type="submit">Send</button><button type="button" class="ib" id="micBtn" aria-label="Record a voice message">🎤</button><div id="rec"><button type="button" class="ib" id="recCancel" aria-label="Cancel recording">✕</button><span id="recT">● 0:00</span><button type="button" id="recSend">Send</button></div></form>
   </div>
  </main>
 </div>
+
+<div id="view" class="hide"><img id="viewImg" alt=""></div>
 
 <div id="find" class="hide">
  <div class="card">
@@ -201,7 +223,7 @@ function drawList() {
     <button class="row ${S.cur && S.cur.phone === c.user.phone ? 'on' : ''}" data-p="${esc(c.user.phone)}">
       <span class="av ${c.online ? 'on' : ''}" style="background:${color(c.user.phone)}">${esc(c.user.name[0].toUpperCase())}</span>
       <span class="meta"><div><b>${esc(c.user.name)}</b><small>${hm(c.last.ts)}</small></div>
-      <div><small>${c.last.from === S.me.phone ? tick(c.last.status) + ' ' : ''}${esc(c.last.text)}</small>${c.unread ? `<span class="badge">${c.unread}</span>` : ''}</div></span>
+      <div><small>${c.last.from === S.me.phone ? tick(c.last.status) + ' ' : ''}${esc(preview(c.last))}</small>${c.unread ? `<span class="badge">${c.unread}</span>` : ''}</div></span>
     </button>`).join('');
   el.querySelectorAll('.row').forEach(b => b.onclick = () => openChat(b.dataset.p));
 }
@@ -224,14 +246,16 @@ function drawHead() {
   $('#hSub').textContent = S.cur.iBlocked ? 'blocked' : S.cur.online ? 'online' : '+' + S.cur.phone;
   $('#blkBtn').textContent = S.cur.iBlocked ? 'Unblock user' : 'Block user';
   $('#txt').disabled = !!S.cur.iBlocked; $('#txt').placeholder = S.cur.iBlocked ? 'You blocked this user' : 'Type a message';
+  $('#attBtn').disabled = $('#micBtn').disabled = !!S.cur.iBlocked;
 }
 
 function drawMsgs() {
   const el = $('#msgs');
   el.innerHTML = S.msgs.map(m => {
     const me = m.from === S.me.phone;
-    return `<div class="m ${me ? 'me' : ''}">${esc(m.text)}<i>${hm(m.ts)}${me ? ` <span class="${m.status === 'read' ? 'rd' : ''}">${tick(m.status)}</span>` : ` <button class="rep" data-id="${m.id}" aria-label="Report message">⚑</button>`}</i></div>`;
+    return `<div class="m ${me ? 'me' : ''}">${body(m)}<i>${hm(m.ts)}${me ? ` <span class="${m.status === 'read' ? 'rd' : ''}">${tick(m.status)}</span>` : ` <button class="rep" data-id="${m.id}" aria-label="Report message">⚑</button>`}</i></div>`;
   }).join('');
+  hydrate(el);
   el.scrollTop = el.scrollHeight;
 }
 
@@ -342,7 +366,7 @@ async function press(k) {
 }
 
 function lock() {
-  S.locked = true; clearTimeout(S.timer); S.busy = false; S.cur = null; S.chats = []; S.msgs = []; S.sig = ''; S.msigs = '';
+  stopRec(true); clearMedia(); S.locked = true; clearTimeout(S.timer); S.busy = false; S.cur = null; S.chats = []; S.msgs = []; S.sig = ''; S.msigs = '';
   $('#list').innerHTML = ''; $('#msgs').innerHTML = '';
   $('#chat').classList.add('hide'); $('#none').classList.remove('hide');
   ['#app', '#auth', '#find', '#menu', '#cMenu'].forEach(i => $(i).classList.add('hide'));
@@ -373,6 +397,8 @@ $('#blkBtn').onclick = async () => {
   $('#cMenu').classList.add('hide');
 };
 $('#msgs').onclick = async e => {
+  const pl = e.target.closest('.play'); if (pl) { togglePlay(pl); return; }
+  const im = e.target.closest('.mimg'); if (im) { viewImg(im); return; }
   const b = e.target.closest('.rep'); if (!b) return;
   if (!confirm('Report this message? The admin will be able to read it and a few messages before it.')) return;
   const block = confirm('Also block this user?');
@@ -384,6 +410,109 @@ $('#statusBtn').onclick = async () => {
   try { await api('status', { show: !S.showStatus }); S.showStatus = !S.showStatus; S.sig = ''; clearTimeout(S.timer); S.busy = false; sync(); }
   catch (e) { alert(e.message); }
 };
+
+/* ---------- photos & voice messages ---------- */
+const fmt = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+const preview = l => l.kind === 'image' ? '📷 Photo' : l.kind === 'audio' ? '🎤 Voice message' : l.text;
+const body = m => m.kind === 'image' ? `<img class="mimg" data-media="${esc(m.media)}" alt="Photo">`
+  : m.kind === 'audio' ? `<button class="play" data-media="${esc(m.media)}">▶ ${fmt(m.dur || 0)}</button>` : esc(m.text);
+
+const blobs = {};
+function mediaUrl(id) {
+  if (!blobs[id]) blobs[id] = fetch('/api/media/' + id, { headers: { Authorization: 'Bearer ' + S.token } })
+    .then(r => { if (!r.ok) throw 0; return r.blob(); }).then(b => URL.createObjectURL(b)).catch(() => { delete blobs[id]; return null; });
+  return blobs[id];
+}
+function clearMedia() {
+  Object.values(blobs).forEach(p => p.then(u => u && URL.revokeObjectURL(u)));
+  for (const k in blobs) delete blobs[k];
+  if (S.audio) { S.audio.pause(); S.audio = null; S.audioId = null; }
+  $('#view').classList.add('hide'); $('#viewImg').removeAttribute('src');
+}
+function hydrate(el) {
+  el.querySelectorAll('img[data-media]').forEach(img => mediaUrl(img.dataset.media).then(u => {
+    if (u) { img.onload = () => { el.scrollTop = el.scrollHeight; }; img.src = u; }
+  }));
+}
+async function togglePlay(btn) {
+  const id = btn.dataset.media;
+  if (S.audio && S.audioId === id) { if (S.audio.paused) S.audio.play(); else S.audio.pause(); return; }
+  if (S.audio) S.audio.pause();
+  const u = await mediaUrl(id);
+  if (!u) { alert('Could not load this voice message'); return; }
+  const a = new Audio(u); S.audio = a; S.audioId = id;
+  const set = t => document.querySelectorAll('.play').forEach(b => { if (b.dataset.media === id) b.textContent = t; });
+  a.onplay = () => set('⏸ Playing');
+  a.onpause = a.onended = () => set('▶ Play');
+  a.play().catch(() => {});
+}
+function viewImg(im) { if (!im.src) return; $('#viewImg').src = im.src; $('#view').classList.remove('hide'); }
+$('#view').onclick = () => $('#view').classList.add('hide');
+
+async function sendMedia(blob, dur) {
+  if (!S.cur) return;
+  $('#bar').classList.add('busy');
+  try {
+    const r = await fetch('/api/sendmedia?to=' + S.cur.phone + '&dur=' + (dur || 0), {
+      method: 'POST', headers: { 'Content-Type': blob.type, Authorization: 'Bearer ' + S.token }, body: blob });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Could not send. The file may be too large.');
+    S.msgs.push(j); S.msigs = JSON.stringify(S.msgs); drawMsgs();
+    clearTimeout(S.timer); S.busy = false; sync();
+  } catch (e) { alert(e.message); }
+  $('#bar').classList.remove('busy');
+}
+
+$('#attBtn').onclick = () => $('#file').click();
+$('#file').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f || !S.cur) return;
+  try {
+    const bmp = await createImageBitmap(f);
+    const sc = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.72));
+    await sendMedia(blob);
+  } catch { alert('Could not read that image'); }
+};
+
+let rec = null;
+async function startRec() {
+  if (!S.cur || rec) return;
+  if (!(navigator.mediaDevices && window.MediaRecorder)) { alert('Voice recording is not supported in this browser'); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mt = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+    const mr = new MediaRecorder(stream, mt ? { mimeType: mt, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 });
+    const r = { mr, chunks: [], t0: Date.now(), send: false, tm: null };
+    rec = r;
+    mr.ondataavailable = e => { if (e.data.size) r.chunks.push(e.data); };
+    mr.onstop = () => {
+      clearInterval(r.tm); stream.getTracks().forEach(t => t.stop()); rec = null;
+      $('#bar').classList.remove('recording');
+      const secs = Math.round((Date.now() - r.t0) / 1000);
+      if (r.send && r.chunks.length && secs >= 1) sendMedia(new Blob(r.chunks, { type: mr.mimeType || mt || 'audio/mp4' }), secs);
+    };
+    mr.start();
+    $('#recT').textContent = '● 0:00'; $('#bar').classList.add('recording');
+    r.tm = setInterval(() => {
+      if (!rec) return;
+      const s = Math.round((Date.now() - r.t0) / 1000);
+      $('#recT').textContent = '● ' + fmt(s);
+      if (s >= 120) stopRec(false);
+    }, 500);
+  } catch { alert('Allow microphone access to record a voice message.'); }
+}
+function stopRec(cancel) {
+  if (!rec) return;
+  rec.send = !cancel;
+  try { if (rec.mr.state !== 'inactive') rec.mr.stop(); } catch {}
+}
+$('#micBtn').onclick = startRec;
+$('#recSend').onclick = () => stopRec(false);
+$('#recCancel').onclick = () => stopRec(true);
 
 lock();
 </script>
