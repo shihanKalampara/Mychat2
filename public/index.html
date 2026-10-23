@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="light dark">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" type="image/png" href="/api/icon.png?s=64">
 <link rel="apple-touch-icon" href="/api/icon.png?s=180">
@@ -13,56 +14,88 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Calculator</title>
 <style>
-:root{--ink:#26277A;--ink2:#3A3CA6;--bg:#F3F4FA;--panel:#fff;--line:#E1E3F0;--text:#1B1C33;--mute:#6B6E8E;--in:#E3F4EE;--amber:#F2B134;--bad:#C0392B}
+:root{--bg:#EEF3F4;--panel:#fff;--line:#DCE6E8;--text:#10252B;--mute:#5E7880;--brand:#0E7C86;--soft:#E3F3F4;--in:#fff;--accent:#F5A524;--ok:#22C55E;--bad:#D64545;--out1:#0E7C86;--out2:#0A5F68;--sh:0 1px 2px rgba(16,37,43,.1)}
+@media(prefers-color-scheme:dark){:root{--bg:#0A1518;--panel:#102127;--line:#1C353C;--text:#E6F1F3;--mute:#8DA7AE;--brand:#2BB8C4;--soft:#14343A;--in:#17303A;--out1:#13808A;--out2:#0D5F68;--sh:none}}
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
-body{font:16px/1.4 system-ui,-apple-system,"Segoe UI","Noto Sans Malayalam","Noto Sans",sans-serif;background:var(--bg);color:var(--text)}
+body{font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none}
-:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .hide{display:none!important}
-#auth{min-height:100%;display:grid;place-items:center;padding:24px;background:var(--ink)}
-.card{width:100%;max-width:380px;background:var(--panel);border-radius:14px;padding:28px 24px}
-.logo{font-size:30px;font-weight:800;color:var(--ink);letter-spacing:-.5px}
-.tag{color:var(--mute);margin:2px 0 20px}
-.card input{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:#fff}
-.btn{width:100%;padding:12px;border-radius:8px;background:var(--ink);color:#fff;font-weight:600}
-.btn:hover{background:var(--ink2)}
-.link{display:block;margin:14px auto 0;color:var(--ink);text-decoration:underline}
+.ico{width:22px;height:22px;display:block;flex:none}
+.ib{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--mute);flex:none;transition:background .15s,color .15s}
+.ib:hover{background:var(--soft);color:var(--brand)}
+.ib:disabled{opacity:.4;pointer-events:none}
+.mark{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--out1),var(--out2));box-shadow:0 6px 16px rgba(14,124,134,.35)}
+.mark .ico{width:28px;height:28px}
+.mark.sm{width:32px;height:32px;border-radius:10px;box-shadow:none}.mark.sm .ico{width:18px;height:18px}
+.mark.big{width:84px;height:84px;border-radius:24px;margin-bottom:16px}.mark.big .ico{width:40px;height:40px}
+#auth{min-height:100%;display:grid;place-items:center;padding:24px;background:radial-gradient(120% 90% at 20% 0%,#14808A 0%,#0A3F47 55%,#071E24 100%)}
+.card{width:100%;max-width:380px;background:var(--panel);border-radius:20px;padding:32px 26px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.logo{font-size:28px;font-weight:800;letter-spacing:-.5px;margin-top:16px}
+.tag{color:var(--mute);margin:2px 0 22px}
+.card input{width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;margin-bottom:12px;background:var(--bg);transition:border-color .15s,background .15s}
+.card input:focus{outline:0;border-color:var(--brand);background:var(--panel)}
+.btn{width:100%;padding:13px;border-radius:12px;background:linear-gradient(135deg,var(--out1),var(--out2));color:#fff;font-weight:700}
+.btn:active{filter:brightness(.92)}
+.link{display:block;margin:14px auto 0;color:var(--brand);font-weight:600}
+.note{font-size:13px;color:var(--mute);margin-top:16px;text-align:center}
 .err{color:var(--bad);min-height:20px;margin-bottom:8px;font-size:14px}
-#app{height:100dvh;display:grid;grid-template-columns:340px 1fr;padding-bottom:env(safe-area-inset-bottom)}
+#app{height:100dvh;display:grid;grid-template-columns:360px 1fr}
 #side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-.top{background:var(--ink);color:#fff;padding:calc(12px + env(safe-area-inset-top)) 14px 12px;display:flex;align-items:center;gap:8px}
-.top b{flex:1;font-size:20px}
-.top button{color:#fff;padding:6px 10px;border-radius:6px;background:rgba(255,255,255,.14)}
-#list{overflow:auto;flex:1}
-.row{display:flex;gap:12px;align-items:center;padding:12px 14px;width:100%;text-align:left;border-bottom:1px solid var(--line)}
-.row:hover,.row.on{background:var(--bg)}
-.av{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700}
+.top{position:relative;padding:calc(12px + env(safe-area-inset-top)) 12px 12px 16px;display:flex;align-items:center;gap:2px;border-bottom:1px solid var(--line)}
+.brand{flex:1;display:flex;align-items:center;gap:10px;font-size:20px;font-weight:800;letter-spacing:-.3px}
+#menu,#cMenu{position:absolute;right:12px;top:calc(100% - 4px);background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.18);z-index:20;overflow:hidden;min-width:200px}
+#menu button,#cMenu button{display:block;width:100%;padding:13px 18px;text-align:left;white-space:nowrap}
+#menu button:hover,#cMenu button:hover{background:var(--soft)}
+#list{overflow:auto;flex:1;padding:6px}
+.row{display:flex;gap:12px;align-items:center;padding:10px;width:100%;text-align:left;border-radius:14px;transition:background .12s}
+.row:hover,.row.on{background:var(--soft)}
+.av{position:relative;flex:none;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:18px}
+.av.on::after{content:"";position:absolute;right:0;bottom:0;width:13px;height:13px;border-radius:50%;background:var(--ok);border:2.5px solid var(--panel)}
 .meta{flex:1;min-width:0}
-.meta div{display:flex;justify-content:space-between;gap:8px}
-.meta small{color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-.badge{background:var(--amber);color:#2b2100;border-radius:10px;padding:0 7px;font-size:12px;font-weight:700}
-.empty{padding:32px 20px;color:var(--mute);text-align:center}
-#pane{display:flex;flex-direction:column;min-height:0;min-width:0}
-#head{background:var(--panel);border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top)) 14px 10px;display:flex;align-items:center;gap:10px}
-#back{display:none;font-size:22px;color:var(--ink)}
-#msgs{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:6px}
-.m{max-width:78%;padding:8px 12px;border-radius:12px;background:var(--in);word-wrap:break-word;white-space:pre-wrap}
-.m.me{align-self:flex-end;background:var(--ink);color:#fff}
-.m i{display:block;font-style:normal;font-size:11px;opacity:.7;text-align:right;margin-top:2px}
-.m.me .rd{color:var(--amber);opacity:1}
-#bar{display:flex;gap:8px;padding:10px;background:var(--panel);border-top:1px solid var(--line)}
-#bar input{flex:1;padding:12px 14px;border:1px solid var(--line);border-radius:22px}
-#bar button{background:var(--ink);color:#fff;border-radius:22px;padding:0 20px;font-weight:600}
-#none{flex:1;display:grid;place-items:center;color:var(--mute);padding:20px;text-align:center}
-#find{position:fixed;inset:0;background:rgba(20,20,50,.5);display:grid;place-items:start center;padding:8vh 16px}
-#find .card{padding:16px;max-height:80vh;overflow:auto}
-
-.top{position:relative}
-#menu{position:absolute;right:10px;top:100%;background:#fff;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.25);display:flex;flex-direction:column;z-index:20;overflow:hidden}
-.top #menu button{color:var(--text);background:none;padding:12px 18px;text-align:left;border-radius:0;white-space:nowrap}
-.top #menu button:hover{background:var(--bg)}
+.meta div{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.meta b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta small{color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;font-size:14px}
+.meta small .ico{width:16px;height:16px}
+.badge{background:var(--brand);color:#fff;border-radius:999px;min-width:20px;height:20px;padding:0 6px;font-size:12px;font-weight:700;display:grid;place-items:center}
+.empty{padding:36px 22px;color:var(--mute);text-align:center}
+#pane{display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--bg)}
+#head{position:relative;background:var(--panel);border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top)) 10px 10px;display:flex;align-items:center;gap:10px}
+#back{display:none}
+#none{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--mute);padding:24px;text-align:center}
+#none b{color:var(--text);font-size:20px;margin-bottom:4px}
+#msgs{flex:1;overflow:auto;padding:16px 14px;display:flex;flex-direction:column;gap:4px}
+.m{align-self:flex-start;max-width:min(78%,520px);padding:9px 13px 7px;border-radius:18px 18px 18px 6px;background:var(--in);box-shadow:var(--sh);word-wrap:break-word;white-space:pre-wrap}
+.m.me{align-self:flex-end;background:linear-gradient(135deg,var(--out1),var(--out2));color:#fff;border-radius:18px 18px 6px 18px}
+.m i{display:flex;justify-content:flex-end;align-items:center;gap:4px;font-style:normal;font-size:11px;opacity:.7;margin-top:3px}
+.m i .ico{width:15px;height:15px}
+.m i span{display:inline-flex}
+.m.me .rd{color:#FFD27A}
+.rep{opacity:.5;color:inherit;display:inline-grid;place-items:center}
+.rep .ico{width:13px;height:13px}
+.rep:hover{opacity:1}
+.mimg{display:block;max-width:100%;max-height:320px;border-radius:12px;cursor:pointer;background:rgba(0,0,0,.08);min-width:140px;min-height:90px}
+.play{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.2);border-radius:999px;padding:8px 16px 8px 10px;font-weight:600;color:inherit}
+.play .ico{width:18px;height:18px}
+.m:not(.me) .play{background:var(--soft);color:var(--brand)}
+#bar{display:flex;align-items:center;gap:6px;padding:10px 10px calc(10px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line)}
+#txt{flex:1;min-width:0;padding:12px 16px;border:1.5px solid var(--line);border-radius:999px;background:var(--bg)}
+#txt:focus{outline:0;border-color:var(--brand)}
+#txt:disabled{opacity:.5}
+.send{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex:none;color:#fff;background:linear-gradient(135deg,var(--out1),var(--out2))}
+.send .ico{width:20px;height:20px;transform:translateX(-1px)}
+#rec{display:none;flex:1;align-items:center;gap:10px}
+#rec span{flex:1;color:var(--bad);font-weight:700}
+#bar.recording>:not(#rec){display:none!important}
+#bar.recording #rec{display:flex}
+#bar.busy{opacity:.6;pointer-events:none}
+#find{position:fixed;inset:0;background:rgba(7,30,36,.55);backdrop-filter:blur(4px);display:grid;place-items:start center;padding:8vh 16px;z-index:30}
+#find .card{padding:18px;max-height:80vh;overflow:auto}
+#view{position:fixed;inset:0;background:rgba(0,0,0,.92);display:grid;place-items:center;z-index:40}
+#view img{max-width:100%;max-height:100%}
+@media(max-width:720px){#app{grid-template-columns:1fr}#pane{display:none}#app.open #side{display:none}#app.open #pane{display:flex}#back{display:grid}}
 #calc{position:fixed;inset:0;background:#000;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;padding:16px 14px calc(16px + env(safe-area-inset-bottom));z-index:50;user-select:none;-webkit-user-select:none;touch-action:manipulation;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 #cHint{color:#8d8d93;font-size:14px;text-align:center;min-height:20px;padding-bottom:8px}
 #cExp{color:#8d8d93;text-align:right;font-size:20px;min-height:28px;overflow:hidden;white-space:nowrap}
@@ -74,33 +107,6 @@ button{cursor:pointer;border:0;background:none}
 #cKeys .op{background:#ff9f0a}
 #cKeys .zero{grid-column:span 2;aspect-ratio:auto;border-radius:999px;place-items:center start;padding-left:28px}
 #cExp,#cOut{max-width:420px;width:100%;margin-left:auto;margin-right:auto}
-.rep{font-size:12px;opacity:.45;padding:0 4px;color:inherit}
-#head{position:relative}
-#cMenu{position:absolute;right:10px;top:100%;background:#fff;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.25);z-index:20;overflow:hidden}
-#cMenu button{padding:12px 18px;white-space:nowrap;display:block}
-#cMenu button:hover{background:var(--bg)}
-.av{position:relative}
-.av.on::after{content:"";position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:#22c55e;border:2px solid #fff}
-.mimg{display:block;max-width:100%;max-height:320px;border-radius:8px;cursor:pointer;background:rgba(0,0,0,.08);min-width:120px;min-height:80px}
-.play{background:rgba(255,255,255,.18);color:inherit;border-radius:16px;padding:6px 14px;font-weight:600}
-.m:not(.me) .play{background:rgba(38,39,122,.12)}
-#bar{align-items:center}
-#bar .ib{background:none;color:var(--ink);font-size:22px;padding:0 6px;border-radius:50%;min-width:36px}
-#bar .ib:disabled,#bar input:disabled{opacity:.4}
-#rec{display:none;flex:1;align-items:center;gap:12px}
-#rec span{flex:1;color:#c0392b;font-weight:600}
-#bar.recording>:not(#rec){display:none!important}
-#bar.recording #rec{display:flex}
-#bar.busy{opacity:.6;pointer-events:none}
-#view{position:fixed;inset:0;background:rgba(0,0,0,.92);display:grid;place-items:center;z-index:40}
-#view img{max-width:100%;max-height:100%}
-@media(max-width:720px){
- #app{grid-template-columns:1fr}
- #pane{display:none}
- #app.open #side{display:none}
- #app.open #pane{display:flex}
- #back{display:block}
-}
 </style>
 </head>
 <body>
@@ -109,29 +115,30 @@ button{cursor:pointer;border:0;background:none}
 
 <div id="auth" class="hide">
  <form class="card" id="authForm">
+  <div class="mark" data-ico="chat"></div>
   <div class="logo">MyChat</div>
-  <div class="tag">നിങ്ങളുടെ സ്വന്തം ചാറ്റ്</div>
+  <div class="tag">Simple, private messaging.</div>
   <input id="aName" placeholder="Your name" autocomplete="name">
   <input id="aPhone" placeholder="Phone number" inputmode="tel" autocomplete="tel">
   <input id="aPass" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
   <div class="err" id="aErr" role="alert"></div>
   <button class="btn" id="aGo" type="submit">Create account</button>
-  <p class="tag" style="font-size:13px;margin:14px 0 0">Messages are private. Only a message that someone reports can be reviewed by the admin.</p>
+  <p class="note">Messages are private. Only a message that someone reports can be reviewed by the admin.</p>
   <button class="link" id="aSwap" type="button">I already have an account</button>
  </form>
 </div>
 
 <div id="app" class="hide">
  <aside id="side">
-  <div class="top"><b>MyChat</b><button id="newBtn">New chat</button><button id="lockBtn">Lock</button><button id="moreBtn" aria-label="More options">⋯</button><div id="menu" class="hide"><button id="statusBtn">Activity status: On</button><button id="codeBtn">Change code</button><button id="outBtn">Log out</button></div></div>
+  <div class="top"><div class="brand"><span class="mark sm" data-ico="chat"></span>MyChat</div><button class="ib" id="newBtn" aria-label="New chat" data-ico="edit"></button><button class="ib" id="lockBtn" aria-label="Lock" data-ico="lock"></button><button class="ib" id="moreBtn" aria-label="More options" data-ico="more"></button><div id="menu" class="hide"><button id="statusBtn">Activity status: On</button><button id="codeBtn">Change code</button><button id="outBtn">Log out</button></div></div>
   <div id="list"></div>
  </aside>
  <main id="pane">
-  <div id="none">Pick a chat, or start a new one with a phone number.</div>
+  <div id="none"><div class="mark big" data-ico="chat"></div><b>Your messages</b><p>Select a chat, or start a new one with a phone number.</p></div>
   <div id="chat" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
-   <div id="head"><button id="back" aria-label="Back to chats">&larr;</button><div class="av" id="hAv"></div><div class="meta"><b id="hName"></b><small id="hSub"></small></div><button id="cMore" aria-label="Chat options" style="font-size:22px;color:var(--ink);padding:4px 10px">⋯</button><div id="cMenu" class="hide"><button id="blkBtn">Block user</button></div></div>
+   <div id="head"><button class="ib" id="back" aria-label="Back to chats" data-ico="back"></button><div class="av" id="hAv"></div><div class="meta"><b id="hName"></b><small id="hSub"></small></div><button class="ib" id="cMore" aria-label="Chat options" data-ico="more"></button><div id="cMenu" class="hide"><button id="blkBtn">Block user</button></div></div>
    <div id="msgs"></div>
-   <form id="bar"><button type="button" class="ib" id="attBtn" aria-label="Send a photo">📷</button><input type="file" id="file" accept="image/*" hidden><input id="txt" placeholder="Type a message" autocomplete="off"><button type="submit">Send</button><button type="button" class="ib" id="micBtn" aria-label="Record a voice message">🎤</button><div id="rec"><button type="button" class="ib" id="recCancel" aria-label="Cancel recording">✕</button><span id="recT">● 0:00</span><button type="button" id="recSend">Send</button></div></form>
+   <form id="bar"><button type="button" class="ib" id="attBtn" aria-label="Send a photo" data-ico="image"></button><input type="file" id="file" accept="image/*" hidden><input id="txt" placeholder="Message" autocomplete="off"><button type="button" class="ib" id="micBtn" aria-label="Record a voice message" data-ico="mic"></button><button type="submit" class="send" aria-label="Send message" data-ico="send"></button><div id="rec"><button type="button" class="ib" id="recCancel" aria-label="Cancel recording" data-ico="x"></button><span id="recT">● 0:00</span><button type="button" class="send" id="recSend" aria-label="Send voice message" data-ico="send"></button></div></form>
   </div>
  </main>
 </div>
@@ -152,7 +159,24 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const COLORS = ['#3A3CA6','#1F8A70','#C2410C','#9333EA','#0E7490','#B45309','#BE185D'];
 const color = p => COLORS[[...p].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 const hm = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-const tick = s => s === 'sent' ? '✓' : '✓✓';
+const ICONS = {
+  chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  more: '<circle cx="12" cy="5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="19" r="1.4" fill="currentColor"/>',
+  back: '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
+  x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  image: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>',
+  mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/>',
+  send: '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+  play: '<polygon points="6 4 20 12 6 20 6 4" fill="currentColor"/>',
+  pause: '<rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/>',
+  flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+  check: '<polyline points="20 6 9 17 4 12"/>',
+  check2: '<path d="M2 12l5 5L17 7"/><path d="M12 16l1.5 1.5L22 7"/>'
+};
+const ico = n => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+const tick = s => ico(s === 'sent' ? 'check' : 'check2');
 
 let S = { locked: true, token: localStorage.token, me: JSON.parse(localStorage.me || 'null'), chats: [], cur: null, msgs: [], mode: 'register', timer: null, busy: false, sig: '', unread: 0 };
 
@@ -218,7 +242,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { cl
 
 function drawList() {
   const el = $('#list');
-  if (!S.chats.length) { el.innerHTML = '<div class="empty">No chats yet.<br>Tap “New chat” and search for a friend’s number.</div>'; return; }
+  if (!S.chats.length) { el.innerHTML = '<div class="empty">No chats yet.<br>Tap the pencil icon to find a friend by name or phone number.</div>'; return; }
   el.innerHTML = S.chats.map(c => `
     <button class="row ${S.cur && S.cur.phone === c.user.phone ? 'on' : ''}" data-p="${esc(c.user.phone)}">
       <span class="av ${c.online ? 'on' : ''}" style="background:${color(c.user.phone)}">${esc(c.user.name[0].toUpperCase())}</span>
@@ -253,7 +277,7 @@ function drawMsgs() {
   const el = $('#msgs');
   el.innerHTML = S.msgs.map(m => {
     const me = m.from === S.me.phone;
-    return `<div class="m ${me ? 'me' : ''}">${body(m)}<i>${hm(m.ts)}${me ? ` <span class="${m.status === 'read' ? 'rd' : ''}">${tick(m.status)}</span>` : ` <button class="rep" data-id="${m.id}" aria-label="Report message">⚑</button>`}</i></div>`;
+    return `<div class="m ${me ? 'me' : ''}">${body(m)}<i>${hm(m.ts)}${me ? ` <span class="${m.status === 'read' ? 'rd' : ''}">${tick(m.status)}</span>` : ` <button class="rep" data-id="${m.id}" aria-label="Report message">${ico('flag')}</button>`}</i></div>`;
   }).join('');
   hydrate(el);
   el.scrollTop = el.scrollHeight;
@@ -413,9 +437,9 @@ $('#statusBtn').onclick = async () => {
 
 /* ---------- photos & voice messages ---------- */
 const fmt = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-const preview = l => l.kind === 'image' ? '📷 Photo' : l.kind === 'audio' ? '🎤 Voice message' : l.text;
+const preview = l => l.kind === 'image' ? 'Photo' : l.kind === 'audio' ? 'Voice message' : l.text;
 const body = m => m.kind === 'image' ? `<img class="mimg" data-media="${esc(m.media)}" alt="Photo">`
-  : m.kind === 'audio' ? `<button class="play" data-media="${esc(m.media)}">▶ ${fmt(m.dur || 0)}</button>` : esc(m.text);
+  : m.kind === 'audio' ? `<button class="play" data-media="${esc(m.media)}">${ico('play')}<span>${fmt(m.dur || 0)}</span></button>` : esc(m.text);
 
 const blobs = {};
 function mediaUrl(id) {
@@ -441,9 +465,9 @@ async function togglePlay(btn) {
   const u = await mediaUrl(id);
   if (!u) { alert('Could not load this voice message'); return; }
   const a = new Audio(u); S.audio = a; S.audioId = id;
-  const set = t => document.querySelectorAll('.play').forEach(b => { if (b.dataset.media === id) b.textContent = t; });
-  a.onplay = () => set('⏸ Playing');
-  a.onpause = a.onended = () => set('▶ Play');
+  const set = t => document.querySelectorAll('.play').forEach(b => { if (b.dataset.media === id) b.innerHTML = t; });
+  a.onplay = () => set(ico('pause') + '<span>Playing</span>');
+  a.onpause = a.onended = () => set(ico('play') + '<span>Play</span>');
   a.play().catch(() => {});
 }
 function viewImg(im) { if (!im.src) return; $('#viewImg').src = im.src; $('#view').classList.remove('hide'); }
@@ -513,6 +537,8 @@ function stopRec(cancel) {
 $('#micBtn').onclick = startRec;
 $('#recSend').onclick = () => stopRec(false);
 $('#recCancel').onclick = () => stopRec(true);
+
+document.querySelectorAll('[data-ico]').forEach(e => { e.innerHTML = ico(e.dataset.ico); });
 
 lock();
 </script>
